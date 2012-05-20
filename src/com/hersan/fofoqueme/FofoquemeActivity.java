@@ -1,4 +1,3 @@
-// tgh !!!
 package com.hersan.fofoqueme;
 
 import android.app.Activity;
@@ -40,7 +39,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 	// queue for messages
 	private Queue<String> msgQueue = null;
-	private String sayMe = null;
+	//private String sayMe = null;
 
 
 	// listen for intent sent by broadcast of SMS signal
@@ -70,15 +69,19 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						// clean up the @/# if it's there...
 						message = message.replaceAll("[@#]?", "");
 						message = message.replaceAll("[@#]?", "");
-						// TODO: push onto queue (garbled message??)
-						myTTS.speak(message, TextToSpeech.QUEUE_ADD, null);
-						// send start signal to arduino
-						try{
-							// TODO: add a state check. Only start if it has stopped
-							myBTOutStream.write('G');
+
+						// if not active (no messages in queue waiting to be said), 
+						//   send start signal to arduino
+						if(msgQueue.isEmpty() == true){
+							try{
+								myBTOutStream.write('G');
+							}
+							catch(Exception e){}
 						}
-						catch(Exception e){
-						}
+
+						// push onto queue 
+						// TODO : garbled message
+						msgQueue.offer(message);
 					}
 				}
 			}
@@ -97,14 +100,12 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		// new sms listener if needed
 		mySMS = (mySMS == null)?(new SMSReceiver()):mySMS;
 
+		// new message queue
+		msgQueue = (msgQueue == null)?(new LinkedList<String>()):msgQueue;
+
 		// register smsReceiver
 		registerReceiver(mySMS, new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
 
-		// new message queue
-		if(msgQueue == null){
-			msgQueue = new LinkedList<String>();
-		}
-		
 		// Bluetooth-ness
 		Toast.makeText(this, "Starting Bluetooth Connection", Toast.LENGTH_SHORT ).show();
 		// from : http://stackoverflow.com/questions/6565144/android-bluetooth-com-port
@@ -126,10 +127,8 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			myBTOutStream = myBTSocket.getOutputStream();
 			myBTInStream = myBTSocket.getInputStream();
 		}
-		catch(Exception e){
+		catch(Exception e){}
 
-		}
-		
 		// if there is a valid input stream,
 		//   attach a thread to listen to input comming in
 		if(myBTInStream != null){
@@ -140,8 +139,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 				}
 			}).start();
 		}
-
-		// TODO: start thread to empty queue?!
 	}
 
 	@Override
@@ -162,14 +159,19 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	public boolean onTouchEvent(MotionEvent event){
 		System.out.println("!!!: from onTouch");
 		if((event.getAction() == MotionEvent.ACTION_UP) && (isTTSReady)){
-			// TODO: Add to queue (and garble a test message)
-			myTTS.speak("Comeando!", TextToSpeech.QUEUE_ADD, null);
-			try{
-				// TODO: add a state check. Only start if it has stopped
-				myBTOutStream.write('G');
+
+			// if arduino is idle (msg queue is empty), start the dance
+			if(msgQueue.isEmpty() == true){
+				try{
+					myBTOutStream.write('G');
+				}
+				catch(Exception e){}
 			}
-			catch(Exception e){
-			}
+
+			// Add to queue 
+			// TODO: garble message
+			msgQueue.offer("Ai, se eu te pego");
+
 			return true;
 		}
 		return false;
@@ -207,9 +209,9 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 		isTTSReady = true;
 	}
-	
+
 	/////////////////////////////
-	
+
 	// an input stream "listener" to be run on a thread
 	// waits for the stop signal from the arduino serial connection
 	private void startStreamListener(InputStream is){
@@ -217,9 +219,18 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			try{
 				if(is.available() > 0){
 					int b = is.read();
-					// TODO: add a state check. Only stop if it started...
+					// check if it's a S(top) signal
+					//    and if there is something to say
 					if(b == 'S'){
-						FofoquemeActivity.this.streamCallback();
+						if(msgQueue.isEmpty() == false){
+							// play the next text message from queue
+							FofoquemeActivity.this.playNextMessage();
+
+							// see if there are more messages to be sent
+							if(msgQueue.isEmpty() == false){
+								myBTOutStream.write('G');
+							}
+						}
 					}
 				}
 			}
@@ -229,9 +240,9 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	}
 
 	// to be called when Arduino is done running its code
-	private void streamCallback(){
-		// TODO: play garbled message here
-		myTTS.speak("Fofoque-me. Ai se eu te pego.", TextToSpeech.QUEUE_ADD, null);
+	//    assumes message is already garbled and queue is not empty
+	private void playNextMessage(){
+		myTTS.speak(msgQueue.poll(), TextToSpeech.QUEUE_ADD, null);
 	}
 
 }
