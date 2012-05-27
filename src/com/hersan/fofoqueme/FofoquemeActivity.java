@@ -11,6 +11,9 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.telephony.SmsMessage;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.widget.Toast;
 import com.hersan.fofoqueme.R;
@@ -88,6 +91,28 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 	}
 
+	/** for creating a menu object */
+	@Override
+	public boolean onCreateOptionsMenu (Menu menu){
+		MenuInflater inflater = getMenuInflater();
+		inflater.inflate(com.hersan.fofoqueme.R.menu.menu, menu);
+		return true;
+	}
+
+	/** for handling menu item clicks */
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		// Handle item selection
+		switch (item.getItemId()) {
+		case com.hersan.fofoqueme.R.id.quitbutton:
+			finish();
+			return true;
+		default: 
+			return false;
+		}
+	}
+
+	
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
