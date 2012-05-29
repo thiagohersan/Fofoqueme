@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Environment;
 import android.speech.tts.TextToSpeech;
 import android.telephony.SmsMessage;
 import android.view.Menu;
@@ -16,10 +17,12 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.widget.Toast;
-import com.hersan.fofoqueme.R;
+//import com.hersan.fofoqueme.R;
 
 import java.io.OutputStream;
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileWriter;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.Queue;
@@ -32,6 +35,8 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private static final UUID SERIAL_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 	// BlueSmirf's address
 	private static final String BLUE_SMIRF_MAC = "00:06:66:45:16:6C";
+	// msg+number file name
+	private static final String MSG_FILE_NAME = "FOFOQUEME.txt";
 
 	private TextToSpeech myTTS = null;
 	private boolean isTTSReady = false;
@@ -39,6 +44,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private BluetoothSocket myBTSocket = null;
 	private OutputStream myBTOutStream = null;
 	private InputStream myBTInStream = null;
+	private FileWriter myFileWriter = null;
 
 	// queue for messages
 	private Queue<String> msgQueue = null;
@@ -73,6 +79,17 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						message = message.replaceAll("[@#]?", "");
 						message = message.replaceAll("[@#]?", "");
 
+						// write number and msg to SD card
+						try{
+							if(myFileWriter != null){
+								myFileWriter.append(phoneNum+":::"+message+"\n");
+								myFileWriter.flush();
+							}
+						}
+						catch(Exception e){
+						}
+
+
 						// if not active (no messages in queue waiting to be said), 
 						//   send start signal to arduino
 						if(msgQueue.isEmpty() == true){
@@ -83,7 +100,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						}
 
 						// push onto queue 
-						// TODO : garbled message
+						// TODO : garble message
 						msgQueue.offer(message);
 					}
 				}
@@ -112,7 +129,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 	}
 
-	
+
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -130,6 +147,19 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 		// register smsReceiver
 		registerReceiver(mySMS, new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
+
+		// start a file to save msg and phone numbers to
+		try {
+			File root = new File(Environment.getExternalStorageDirectory(), "Fofoqueme");
+			if (!root.exists()) {
+				root.mkdirs();
+			}
+			File gpxfile = new File(root, MSG_FILE_NAME);
+			myFileWriter = new FileWriter(gpxfile, true);
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
 
 		// Bluetooth-ness
 		Toast.makeText(this, "Starting Bluetooth Connection", Toast.LENGTH_SHORT ).show();
@@ -215,7 +245,12 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 		// close BT Socket
 		try{
-			myBTSocket.close();
+			if(myBTSocket != null){
+				myBTSocket.close();
+			}
+			if(myFileWriter != null){
+				myFileWriter.close();
+			}
 		}
 		catch(Exception e){
 		}
