@@ -26,6 +26,7 @@ import java.io.FileWriter;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.Queue;
+import java.util.Random;
 import java.util.UUID;
 
 
@@ -45,6 +46,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private OutputStream myBTOutStream = null;
 	private InputStream myBTInStream = null;
 	private FileWriter myFileWriter = null;
+	private Random myRandom = null;
 
 	// queue for messages
 	private Queue<String> msgQueue = null;
@@ -73,7 +75,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 					System.out.println("!!! from: "+phoneNum);
 
 					// only write if it's from a real number
-					// TEST THIS!!!!!
 					if(phoneNum.length() > 5) {
 						// clean up the @/# if it's there...
 						message = message.replaceAll("[@#]?", "");
@@ -138,6 +139,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 		// new text to speech, if needed
 		myTTS = (myTTS == null)?(new TextToSpeech(this, this)):myTTS;
+		myRandom = (myRandom == null)?(new Random()):myRandom;
 
 		// new sms listener if needed
 		mySMS = (mySMS == null)?(new SMSReceiver()):mySMS;
@@ -154,8 +156,8 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			if (!root.exists()) {
 				root.mkdirs();
 			}
-			File gpxfile = new File(root, MSG_FILE_NAME);
-			myFileWriter = new FileWriter(gpxfile, true);
+			//File gpxfile = new File(root, MSG_FILE_NAME);
+			myFileWriter = new FileWriter(new File(root, MSG_FILE_NAME), true);
 		}
 		catch(Exception e) {
 			e.printStackTrace();
@@ -241,7 +243,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 		// unregister sms Receiver
 		unregisterReceiver(mySMS);
-		super.onDestroy();
 
 		// close BT Socket
 		try{
@@ -254,6 +255,8 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 		catch(Exception e){
 		}
+		
+		super.onDestroy();
 	}
 
 	// from OnInitListener interface
@@ -261,9 +264,16 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		System.out.println("!!!!! def eng: "+myTTS.getDefaultEngine());
 		System.out.println("!!!!! def lang: "+myTTS.getLanguage().toString());
 
+		// set the package and language for tts
+		//   these are the values for Luciana
 		myTTS.setEngineByPackageName("com.svox.classic");
 		myTTS.setLanguage(new Locale("pt_BR"));
 
+		// slow her down a little...
+		myTTS.setSpeechRate(0.33f);
+		myTTS.setPitch(1.0f);
+		
+		
 		System.out.println("!!!!! set lang: "+myTTS.getLanguage().toString());
 		Toast.makeText(this, "TTS Lang: "+myTTS.getLanguage().toString(), Toast.LENGTH_SHORT ).show();
 
@@ -302,6 +312,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	// to be called when Arduino is done running its code
 	//    assumes message is already garbled and queue is not empty
 	private void playNextMessage(){
+		myTTS.setPitch(1.5f*myRandom.nextFloat()+0.5f);  // [0.5, 2.0]
 		myTTS.speak(msgQueue.poll(), TextToSpeech.QUEUE_ADD, null);
 	}
 
