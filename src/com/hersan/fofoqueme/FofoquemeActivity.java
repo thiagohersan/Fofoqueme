@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Environment;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.TextToSpeech.Engine;
 import android.telephony.SmsMessage;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -19,12 +20,15 @@ import android.view.MotionEvent;
 import android.widget.Toast;
 //import com.hersan.fofoqueme.R;
 
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.HashMap;
 import java.util.Queue;
 import java.util.Random;
 import java.util.UUID;
@@ -38,6 +42,10 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private static final String BLUE_SMIRF_MAC = "00:06:66:45:16:6C";
 	// msg+number file name
 	private static final String MSG_FILE_NAME = "FOFOQUEME.txt";
+	//
+	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "não acredito. ", "olha essa. ", "ouve só. ", "não não não. ", "atenção. "};
+	private static final String[] POSTPHRASE = {" assim você me mata. "};
+	private static final String[] NONPHRASE  = {"só isso? ", "como assim? ", "aaaaaaiii que preguiça. "};
 
 	private TextToSpeech myTTS = null;
 	private boolean isTTSReady = false;
@@ -45,12 +53,11 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private BluetoothSocket myBTSocket = null;
 	private OutputStream myBTOutStream = null;
 	private InputStream myBTInStream = null;
-	private FileWriter myFileWriter = null;
+	private OutputStreamWriter myFileWriter = null;
 	private Random myRandom = null;
 
 	// queue for messages
 	private Queue<String> msgQueue = null;
-	//private String sayMe = null;
 
 
 	// listen for intent sent by broadcast of SMS signal
@@ -78,31 +85,52 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 					if(phoneNum.length() > 5) {
 						// clean up the @/# if it's there...
 						message = message.replaceAll("[@#]?", "");
-						message = message.replaceAll("[@#]?", "");
 
 						// write number and msg to SD card
 						try{
 							if(myFileWriter != null){
-								myFileWriter.append(phoneNum+":::"+message+"\n");
+								String t = new String(phoneNum+":::"+message+"\n");
+
+								myFileWriter.append(new String(t.getBytes("UTF-8"), "UTF-8"));
 								myFileWriter.flush();
 							}
 						}
-						catch(Exception e){
-						}
+						catch(Exception e){}
 
-
-						// if not active (no messages in queue waiting to be said), 
-						//   send start signal to arduino
-						if(msgQueue.isEmpty() == true){
-							try{
-								myBTOutStream.write('G');
+						// if message is short
+						String[] words = message.split(" ");
+						if(words.length < 3){
+							// if queue is empty
+							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
+								FofoquemeActivity.this.playMessage(NONPHRASE[myRandom.nextInt(NONPHRASE.length)].concat("diga mais. "));
 							}
-							catch(Exception e){}
+							else{
+								// push onto queue
+								// will be modified when it's pulled
+								// msgQueue.offer(message);
+								
+								// don't push onto queue if there's already stuff happening
+							}
 						}
-
-						// push onto queue 
-						// TODO : garble message
-						msgQueue.offer(message);
+						// message longer than 3 words
+						else {
+							// 
+							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
+								try{
+									// write an H 1 out of 10 times
+									if(myRandom.nextInt(10) < 1){
+										myBTOutStream.write('H');
+									}
+									else{
+										myBTOutStream.write('G');
+									}
+								}
+								catch(Exception e){}
+							}
+							// push onto queue 
+							// TODO : garble message
+							msgQueue.offer(message);
+						}
 					}
 				}
 			}
@@ -156,8 +184,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			if (!root.exists()) {
 				root.mkdirs();
 			}
-			//File gpxfile = new File(root, MSG_FILE_NAME);
-			myFileWriter = new FileWriter(new File(root, MSG_FILE_NAME), true);
+			myFileWriter = new OutputStreamWriter(new FileOutputStream(new File(root, MSG_FILE_NAME), true), Charset.forName("UTF-8"));
 		}
 		catch(Exception e) {
 			e.printStackTrace();
@@ -173,10 +200,13 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
 			startActivityForResult(enableBluetooth, 12345);
 		}
+		else{
+			this.bluetoothInitHelper(myBTAdapter);
+		}
 
+		/*
 		// get a device
 		BluetoothDevice myBTDevice = myBTAdapter.getRemoteDevice(BLUE_SMIRF_MAC);
-
 		// get a socket and stream
 		try{
 			myBTSocket = myBTDevice.createRfcommSocketToServiceRecord(SERIAL_UUID);
@@ -196,6 +226,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 				}
 			}).start();
 		}
+		 */
 	}
 
 	@Override
@@ -203,6 +234,15 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		System.out.println("!!!: from onResume");
 		super.onResume();
 		//registerReceiver(mySMS, new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
+	}
+
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		if (requestCode == 12345) {
+			if (resultCode == RESULT_OK) {
+				this.bluetoothInitHelper(BluetoothAdapter.getDefaultAdapter());
+			}
+		}
 	}
 
 	@Override
@@ -218,15 +258,20 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		if((event.getAction() == MotionEvent.ACTION_UP) && (isTTSReady)){
 
 			// if arduino is idle (msg queue is empty), start the dance
-			if(msgQueue.isEmpty() == true){
+			if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
 				try{
-					myBTOutStream.write('G');
+					// write an H 1 out of 10 times
+					if(myRandom.nextInt(10) < 1){
+						myBTOutStream.write('H');
+					}
+					else{
+						myBTOutStream.write('G');
+					}
 				}
 				catch(Exception e){}
 			}
 
 			// Add to queue 
-			// TODO: garble message
 			msgQueue.offer("Ai, se eu te pego");
 
 			return true;
@@ -255,7 +300,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 		catch(Exception e){
 		}
-		
+
 		super.onDestroy();
 	}
 
@@ -270,14 +315,65 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		myTTS.setLanguage(new Locale("pt_BR"));
 
 		// slow her down a little...
-		myTTS.setSpeechRate(0.33f);
+		myTTS.setSpeechRate(0.66f);
 		myTTS.setPitch(1.0f);
-		
-		
+
+		// attach listener
+		myTTS.setOnUtteranceCompletedListener(new TextToSpeech.OnUtteranceCompletedListener(){
+			@Override
+			public void onUtteranceCompleted (String utteranceId){
+				// check if there are more messages to be said
+				if(msgQueue.peek() != null){
+					// if it's a short message, pop and provoke
+					String[] words = msgQueue.poll().split(" ");
+					if(words.length < 3){
+						FofoquemeActivity.this.playMessage(NONPHRASE[myRandom.nextInt(NONPHRASE.length)].concat("diga mais. "));
+					}
+					else {
+						try{
+							// write an H 1 out of 10 times
+							if(myRandom.nextInt(10) < 1){
+								myBTOutStream.write('H');
+							}
+							else{
+								myBTOutStream.write('G');
+							}
+						}
+						catch(Exception e){}
+					}
+				}
+			}
+		});
+
 		System.out.println("!!!!! set lang: "+myTTS.getLanguage().toString());
 		Toast.makeText(this, "TTS Lang: "+myTTS.getLanguage().toString(), Toast.LENGTH_SHORT ).show();
 
 		isTTSReady = true;
+	}
+
+	private void bluetoothInitHelper(BluetoothAdapter myBTA){
+		// get a device
+		BluetoothDevice myBTDevice = myBTA.getRemoteDevice(BLUE_SMIRF_MAC);
+		// get a socket and stream
+		try{
+			myBTSocket = myBTDevice.createRfcommSocketToServiceRecord(SERIAL_UUID);
+			myBTSocket.connect();
+			myBTOutStream = myBTSocket.getOutputStream();
+			myBTInStream = myBTSocket.getInputStream();
+
+			// if there is a valid input stream,
+			//   attach a thread to listen to input comming in
+			if(myBTInStream != null){
+				new Thread(new Runnable(){
+					@Override
+					public void run(){
+						FofoquemeActivity.this.startStreamListener(myBTInStream);
+					}
+				}).start();
+			}
+		}
+		catch(Exception e){}
+
 	}
 
 	/////////////////////////////
@@ -294,26 +390,35 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 					if(b == 'S'){
 						if(msgQueue.isEmpty() == false){
 							// play the next text message from queue
-							FofoquemeActivity.this.playNextMessage();
-
-							// see if there are more messages to be sent
-							if(msgQueue.isEmpty() == false){
-								myBTOutStream.write('G');
-							}
+							FofoquemeActivity.this.playMessage();
+							// the tts onComplete listener will deal with the arduino
 						}
 					}
 				}
 			}
-			catch(Exception e){
-			}
+			catch(Exception e){}
 		}
 	}
 
 	// to be called when Arduino is done running its code
 	//    assumes message is already garbled and queue is not empty
-	private void playNextMessage(){
+	private void playMessage(){
+		playMessage(null);
+		/*
 		myTTS.setPitch(1.5f*myRandom.nextFloat()+0.5f);  // [0.5, 2.0]
-		myTTS.speak(msgQueue.poll(), TextToSpeech.QUEUE_ADD, null);
+		HashMap<String,String> foo = new HashMap<String,String>();
+		foo.put(Engine.KEY_PARAM_UTTERANCE_ID, "1234");
+		myTTS.speak(msgQueue.poll(), TextToSpeech.QUEUE_ADD, foo);
+		 */
 	}
+
+	private void playMessage(String msg){
+		msg = (msg == null)?(msgQueue.poll()):msg;
+		myTTS.setPitch(1.5f*myRandom.nextFloat()+0.5f);  // [0.5, 2.0]
+		HashMap<String,String> foo = new HashMap<String,String>();
+		foo.put(Engine.KEY_PARAM_UTTERANCE_ID, "1234");
+		myTTS.speak(msg, TextToSpeech.QUEUE_ADD, foo);
+	}
+
 
 }
