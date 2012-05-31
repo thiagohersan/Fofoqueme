@@ -44,7 +44,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private static final String MSG_FILE_NAME = "FOFOQUEME.txt";
 	//
 	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "não acredito. ", "olha essa. ", "ouve só. ", "não não não. ", "atenção. "};
-	private static final String[] POSTPHRASE = {" assim você me mata. "};
+	private static final String[] POSTPHRASE = {" . assim você me mata."};
 	private static final String[] NONPHRASE  = {"só isso? ", "como assim? ", "aaaaaaiii que preguiça. "};
 
 	private TextToSpeech myTTS = null;
@@ -58,7 +58,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 	// queue for messages
 	private Queue<String> msgQueue = null;
-
 
 	// listen for intent sent by broadcast of SMS signal
 	// if it gets a new SMS
@@ -90,7 +89,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						try{
 							if(myFileWriter != null){
 								String t = new String(phoneNum+":::"+message+"\n");
-
 								myFileWriter.append(new String(t.getBytes("UTF-8"), "UTF-8"));
 								myFileWriter.flush();
 							}
@@ -101,34 +99,19 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						String[] words = message.split(" ");
 						if(words.length < 3){
 							// if queue is empty
+							//  only play the short message provocations if queue is empty !
 							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
 								FofoquemeActivity.this.playMessage(NONPHRASE[myRandom.nextInt(NONPHRASE.length)].concat("diga mais. "));
-							}
-							else{
-								// push onto queue
-								// will be modified when it's pulled
-								// msgQueue.offer(message);
-								
-								// don't push onto queue if there's already stuff happening
 							}
 						}
 						// message longer than 3 words
 						else {
-							// 
+							// if nothing is already happening, start arduino
 							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
-								try{
-									// write an H 1 out of 10 times
-									if(myRandom.nextInt(10) < 1){
-										myBTOutStream.write('H');
-									}
-									else{
-										myBTOutStream.write('G');
-									}
-								}
-								catch(Exception e){}
+								// TODO test
+								FofoquemeActivity.this.sendSerialSignal();
 							}
-							// push onto queue 
-							// TODO : garble message
+							// push all messages longerthan 3 words onto queue
 							msgQueue.offer(message);
 						}
 					}
@@ -203,30 +186,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		else{
 			this.bluetoothInitHelper(myBTAdapter);
 		}
-
-		/*
-		// get a device
-		BluetoothDevice myBTDevice = myBTAdapter.getRemoteDevice(BLUE_SMIRF_MAC);
-		// get a socket and stream
-		try{
-			myBTSocket = myBTDevice.createRfcommSocketToServiceRecord(SERIAL_UUID);
-			myBTSocket.connect();
-			myBTOutStream = myBTSocket.getOutputStream();
-			myBTInStream = myBTSocket.getInputStream();
-		}
-		catch(Exception e){}
-
-		// if there is a valid input stream,
-		//   attach a thread to listen to input comming in
-		if(myBTInStream != null){
-			new Thread(new Runnable(){
-				@Override
-				public void run(){
-					FofoquemeActivity.this.startStreamListener(myBTInStream);
-				}
-			}).start();
-		}
-		 */
 	}
 
 	@Override
@@ -256,22 +215,11 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	public boolean onTouchEvent(MotionEvent event){
 		System.out.println("!!!: from onTouch");
 		if((event.getAction() == MotionEvent.ACTION_UP) && (isTTSReady)){
-
 			// if arduino is idle (msg queue is empty), start the dance
 			if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
-				try{
-					// write an H 1 out of 10 times
-					if(myRandom.nextInt(10) < 1){
-						myBTOutStream.write('H');
-					}
-					else{
-						myBTOutStream.write('G');
-					}
-				}
-				catch(Exception e){}
+				FofoquemeActivity.this.sendSerialSignal();
 			}
-
-			// Add to queue 
+			// Add the test message to queue 
 			msgQueue.offer("Ai, se eu te pego");
 
 			return true;
@@ -300,7 +248,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 		catch(Exception e){
 		}
-
 		super.onDestroy();
 	}
 
@@ -325,21 +272,16 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 				// check if there are more messages to be said
 				if(msgQueue.peek() != null){
 					// if it's a short message, pop and provoke
-					String[] words = msgQueue.poll().split(" ");
+					//   there shouldn't be any more short messages on queue...
+					// TODO test this
+					String[] words = msgQueue.peek().split(" ");
 					if(words.length < 3){
+						msgQueue.poll();
 						FofoquemeActivity.this.playMessage(NONPHRASE[myRandom.nextInt(NONPHRASE.length)].concat("diga mais. "));
 					}
 					else {
-						try{
-							// write an H 1 out of 10 times
-							if(myRandom.nextInt(10) < 1){
-								myBTOutStream.write('H');
-							}
-							else{
-								myBTOutStream.write('G');
-							}
-						}
-						catch(Exception e){}
+						// TODO test
+						FofoquemeActivity.this.sendSerialSignal();
 					}
 				}
 			}
@@ -352,6 +294,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	}
 
 	private void bluetoothInitHelper(BluetoothAdapter myBTA){
+		System.out.println("!!! from BT init helper");
 		// get a device
 		BluetoothDevice myBTDevice = myBTA.getRemoteDevice(BLUE_SMIRF_MAC);
 		// get a socket and stream
@@ -378,12 +321,27 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 	/////////////////////////////
 
+	private void sendSerialSignal(){
+		try{
+			// write an H 2 out of 10 times
+			if(myRandom.nextInt(10) < 2){
+				System.out.println("!!!: H");
+				myBTOutStream.write('H');
+			}
+			else{
+				System.out.println("!!!: G");
+				myBTOutStream.write('G');
+			}
+		}
+		catch(Exception e){}
+	}
+
 	// an input stream "listener" to be run on a thread
 	// waits for the stop signal from the arduino serial connection
 	private void startStreamListener(InputStream is){
 		while(true){
 			try{
-				if(is.available() > 0){
+				if((is != null)&&(is.available() > 0)){
 					int b = is.read();
 					// check if it's a S(top) signal
 					//    and if there is something to say
@@ -401,19 +359,40 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	}
 
 	// to be called when Arduino is done running its code
-	//    assumes message is already garbled and queue is not empty
+	//    assumes queue is not empty
 	private void playMessage(){
 		playMessage(null);
-		/*
-		myTTS.setPitch(1.5f*myRandom.nextFloat()+0.5f);  // [0.5, 2.0]
-		HashMap<String,String> foo = new HashMap<String,String>();
-		foo.put(Engine.KEY_PARAM_UTTERANCE_ID, "1234");
-		myTTS.speak(msgQueue.poll(), TextToSpeech.QUEUE_ADD, foo);
-		 */
 	}
 
 	private void playMessage(String msg){
-		msg = (msg == null)?(msgQueue.poll()):msg;
+		// if pulling from the queue, modify message
+		if(msg == null){
+			msg = msgQueue.poll();
+			// 2 in 10, add something to front
+			int rInt = myRandom.nextInt(10); 
+			if( rInt < 2){
+				msg = PREPHRASE[myRandom.nextInt(PREPHRASE.length)].concat(msg);
+			}
+			// 2 in 10 add to back
+			else if(rInt < 4){
+				msg = msg.concat(POSTPHRASE[myRandom.nextInt(POSTPHRASE.length)]);
+			}
+			// 2 in 10, repeat longest word
+			else if(rInt < 6){
+				String foo = msg.replaceAll("[.!?]+", " ");
+				String[] words = foo.split(" ");
+				int longestWordInd = 0;
+				for(int i=0; i<words.length; i++){
+					if(words[i].length() > words[longestWordInd].length()){
+						longestWordInd = i;
+					}
+				}
+				msg = msg.replaceAll(words[longestWordInd], words[longestWordInd]+" "+words[longestWordInd]+" "+words[longestWordInd]);
+			}
+		}
+		// else, msg = msg
+		System.out.println("!!! speak: "+msg);
+
 		myTTS.setPitch(1.5f*myRandom.nextFloat()+0.5f);  // [0.5, 2.0]
 		HashMap<String,String> foo = new HashMap<String,String>();
 		foo.put(Engine.KEY_PARAM_UTTERANCE_ID, "1234");
