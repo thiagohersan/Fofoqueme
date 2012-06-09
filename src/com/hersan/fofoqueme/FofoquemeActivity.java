@@ -18,7 +18,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.widget.Toast;
-//import com.hersan.fofoqueme.R;
 
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -26,6 +25,8 @@ import java.io.InputStream;
 import java.io.File;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.HashMap;
@@ -41,10 +42,10 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	// BlueSmirf's address
 	private static final String BLUE_SMIRF_MAC = "00:06:66:45:16:6C";
 	// msg+number file name
-	private static final String MSG_FILE_NAME = "FOFOQUEME.txt";
+	private static final String MSG_FILE_NAME = "FOFOQUEME";
 	//
-	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "não acredito. ", "olha essa. ", "ouve só. ", "não não não. ", "atenção. "};
-	private static final String[] POSTPHRASE = {" . assim você me mata."};
+	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "não acredito. ", "olha essa. ", "ouve só. ", "escuta essa. ", "meu deus. ", "relou. "};
+	private static final String[] POSTPHRASE = {" . assim você me mata.", " . relou.", " . verdade.", " . nem me fale.", " . não me diga.", " . puts.", " . não não não.", " . que coisa.", " . pode creee.", " . pois é."};
 	private static final String[] NONPHRASE  = {"só isso? ", "como assim? ", "aaaaaaiii que preguiça. "};
 
 	private TextToSpeech myTTS = null;
@@ -88,7 +89,18 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						// write number and msg to SD card
 						try{
 							if(myFileWriter != null){
-								String t = new String(phoneNum+":::"+message+"\n");
+								// setting up date strings
+								Calendar calendar = Calendar.getInstance();
+								SimpleDateFormat sdfD = new SimpleDateFormat("yyyyMMdd");
+								SimpleDateFormat sdfT = new SimpleDateFormat("HHmmss");
+
+								// log line format is yyyyMMdd:::HHmmss:::+551101234567:::msg
+								String dateTime = new String(sdfD.format(calendar.getTime()));
+								dateTime = dateTime.concat(":::");
+								dateTime = dateTime.concat(new String(sdfT.format(calendar.getTime())));
+								dateTime = dateTime.concat(":::");
+
+								String t = dateTime.concat(new String(phoneNum+":::"+message+"\n"));
 								myFileWriter.append(new String(t.getBytes("UTF-8"), "UTF-8"));
 								myFileWriter.flush();
 							}
@@ -167,7 +179,13 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			if (!root.exists()) {
 				root.mkdirs();
 			}
-			myFileWriter = new OutputStreamWriter(new FileOutputStream(new File(root, MSG_FILE_NAME), true), Charset.forName("UTF-8"));
+
+			// setting up date strings
+			Calendar calendar = Calendar.getInstance();
+			SimpleDateFormat sdfD = new SimpleDateFormat("yyyyMMdd");
+			String sdfdS = new String(sdfD.format(calendar.getTime()));
+
+			myFileWriter = new OutputStreamWriter(new FileOutputStream(new File(root, MSG_FILE_NAME+sdfdS+".txt"), true), Charset.forName("UTF-8"));
 		}
 		catch(Exception e) {
 			e.printStackTrace();
@@ -272,7 +290,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 				// check if there are more messages to be said
 				if(msgQueue.peek() != null){
 					// if it's a short message, pop and provoke
-					//   there shouldn't be any more short messages on queue...
+					//   there shouldn't be any short messages on queue anymore... this is unnecessary
 					// TODO test this
 					String[] words = msgQueue.peek().split(" ");
 					if(words.length < 3){
