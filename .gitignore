@@ -1,0 +1,17 @@
+## executables
+bin/
+gen/
+
+##
+proguard.cfg
+
+## mac os crap
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+## old emacs files
+*~
+.*~
