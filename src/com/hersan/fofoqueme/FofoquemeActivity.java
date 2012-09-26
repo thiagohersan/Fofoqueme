@@ -41,6 +41,9 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private static final UUID SERIAL_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 	// BlueSmirf's address
 	private static final String BLUE_SMIRF_MAC = "00:06:66:45:16:6C";
+	// thiago's mac mini
+	//private static final String BLUE_SMIRF_MAC = "10:9A:DD:B7:65:EB";
+
 	// msg+number file name
 	private static final String MSG_FILE_NAME = "FOFOQUEME";
 	//
@@ -56,6 +59,9 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private InputStream myBTInStream = null;
 	private OutputStreamWriter myFileWriter = null;
 	private Random myRandom = null;
+
+	// for stream listening thread
+	private Thread myStreamListenerThread = null;
 
 	// queue for messages
 	private Queue<String> msgQueue = null;
@@ -120,7 +126,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						else {
 							// if nothing is already happening, start arduino
 							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
-								// TODO test
 								FofoquemeActivity.this.sendSerialSignal();
 							}
 							// push all messages longerthan 3 words onto queue
@@ -237,6 +242,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
 				FofoquemeActivity.this.sendSerialSignal();
 			}
+
 			// Add the test message to queue 
 			msgQueue.offer("Ai, se eu te pego");
 
@@ -254,6 +260,11 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		}
 		// unregister sms Receiver
 		unregisterReceiver(mySMS);
+
+		// stop stream listener thread
+		if(myStreamListenerThread != null){
+			myStreamListenerThread.stop();
+		}
 
 		// close BT Socket
 		try{
@@ -298,7 +309,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						FofoquemeActivity.this.playMessage(NONPHRASE[myRandom.nextInt(NONPHRASE.length)].concat("diga mais. "));
 					}
 					else {
-						// TODO test
 						FofoquemeActivity.this.sendSerialSignal();
 					}
 				}
@@ -325,12 +335,18 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 			// if there is a valid input stream,
 			//   attach a thread to listen to input comming in
 			if(myBTInStream != null){
-				new Thread(new Runnable(){
+				// if a listener thread has already been fired, kill it
+				if(myStreamListenerThread != null){
+					myStreamListenerThread.stop();
+				}
+				
+				myStreamListenerThread = new Thread(new Runnable(){
 					@Override
 					public void run(){
 						FofoquemeActivity.this.startStreamListener(myBTInStream);
 					}
-				}).start();
+				});
+				myStreamListenerThread.start();
 			}
 		}
 		catch(Exception e){}
@@ -340,6 +356,16 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	/////////////////////////////
 
 	private void sendSerialSignal(){
+		// get whether the BTDevice is bonded
+		if(myBTSocket.getRemoteDevice() != null){
+			// if the device is not bonded, try to bond again...
+			while(myBTSocket.getRemoteDevice().getBondState() == BluetoothDevice.BOND_NONE){
+				System.out.println("!!!: from sendSerialSignal: BTDevice not bonded, trying to re-bond");
+				//
+				bluetoothInitHelper(BluetoothAdapter.getDefaultAdapter());
+			}
+		}
+
 		try{
 			// write an H 2 out of 10 times
 			if(myRandom.nextInt(10) < 2){
@@ -417,5 +443,6 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		myTTS.speak(msg, TextToSpeech.QUEUE_ADD, foo);
 	}
 
-
 }
+
+
