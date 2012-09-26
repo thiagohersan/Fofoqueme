@@ -327,6 +327,12 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		BluetoothDevice myBTDevice = myBTA.getRemoteDevice(BLUE_SMIRF_MAC);
 		// get a socket and stream
 		try{
+			// if there's a non-null socket... disconnect
+			if(myBTSocket != null){
+				myBTSocket.close();
+			}
+
+			// then (re)start the socket 
 			myBTSocket = myBTDevice.createRfcommSocketToServiceRecord(SERIAL_UUID);
 			myBTSocket.connect();
 			myBTOutStream = myBTSocket.getOutputStream();
