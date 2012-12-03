@@ -47,8 +47,8 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	// msg+number file name
 	private static final String MSG_FILE_NAME = "FOFOQUEME";
 	//
-	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "não acredito. ", "olha essa. ", "ouve só. ", "escuta essa. ", "meu deus. ", "relou. "};
-	private static final String[] POSTPHRASE = {" . assim você me mata.", " . relou.", " . verdade.", " . nem me fale.", " . não me diga.", " . puts.", " . não não não.", " . que coisa.", " . pode creee.", " . pois é."};
+	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "no te creo. ", "mira eso. ", "escucha ", "dios mio. ", "relou. "};
+	private static final String[] POSTPHRASE = {" . asi tu me matas.", " . relou.", " . verdade.", " . nem me fale.", " . não me diga.", " . puts.", " . no no no.", " . que coisa.", " . pode creee.", " . pois é."};
 	private static final String[] NONPHRASE  = {"só isso? ", "como assim? ", "aaaaaaiii que preguiça. "};
 
 	// DEBUG variables
@@ -242,7 +242,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		System.out.println("!!!: from onTouch");
 		if((event.getAction() == MotionEvent.ACTION_UP) && (isTTSReady)){
 			// Add the test message to queue 
-			msgQueue.offer("Ai, se eu te pego");
+			msgQueue.offer("¡ay! si te cojo, ¡ay! ¡ay! si te cojo");
 
 			// if arduino is idle (msg queue only has the message I just put there), start the dance
 			if((msgQueue.size() == 1)&&(myTTS.isSpeaking() == false)){
