@@ -47,10 +47,13 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	// msg+number file name
 	private static final String MSG_FILE_NAME = "FOFOQUEME";
 	//
-	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "não acredito. ", "olha essa. ", "ouve só. ", "escuta essa. ", "meu deus. ", "relou. "};
-	private static final String[] POSTPHRASE = {" . assim você me mata.", " . relou.", " . verdade.", " . nem me fale.", " . não me diga.", " . puts.", " . não não não.", " . que coisa.", " . pode creee.", " . pois é."};
+	private static final String[] PREPHRASE  = {"aiaiai aiai. ", "ui ui ui. ", "no te creo. ", "mira eso. ", "escucha ", "dios mio. ", "relou. "};
+	private static final String[] POSTPHRASE = {" . asi tu me matas.", " . relou.", " . verdade.", " . nem me fale.", " . não me diga.", " . puts.", " . no no no.", " . que coisa.", " . pode creee.", " . pois é."};
 	private static final String[] NONPHRASE  = {"só isso? ", "como assim? ", "aaaaaaiii que preguiça. "};
 
+	// DEBUG variables
+	private static final boolean DEBUG_VOICE = true;
+	
 	private TextToSpeech myTTS = null;
 	private boolean isTTSReady = false;
 	private SMSReceiver mySMS = null;
@@ -124,12 +127,13 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						}
 						// message longer than 3 words
 						else {
-							// if nothing is already happening, start arduino
-							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
-								FofoquemeActivity.this.sendSerialSignal();
-							}
 							// push all messages longerthan 3 words onto queue
 							msgQueue.offer(message);
+
+							// if nothing is already happening, start arduino
+							if((msgQueue.size() == 1)&&(myTTS.isSpeaking() == false)){
+								FofoquemeActivity.this.sendSerialSignal();
+							}
 						}
 					}
 				}
@@ -238,13 +242,13 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	public boolean onTouchEvent(MotionEvent event){
 		System.out.println("!!!: from onTouch");
 		if((event.getAction() == MotionEvent.ACTION_UP) && (isTTSReady)){
-			// if arduino is idle (msg queue is empty), start the dance
-			if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
+			// Add the test message to queue 
+			msgQueue.offer("¡ay! si te cojo, ¡ay! ¡ay! si te cojo");
+
+			// if arduino is idle (msg queue only has the message I just put there), start the dance
+			if((msgQueue.size() == 1)&&(myTTS.isSpeaking() == false)){
 				FofoquemeActivity.this.sendSerialSignal();
 			}
-
-			// Add the test message to queue 
-			msgQueue.offer("Ai, se eu te pego");
 
 			return true;
 		}
@@ -288,7 +292,7 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 		// set the package and language for tts
 		//   these are the values for Luciana
 		myTTS.setEngineByPackageName("com.svox.classic");
-		myTTS.setLanguage(new Locale("pt_BR"));
+		myTTS.setLanguage(new Locale("es_MX"));
 
 		// slow her down a little...
 		myTTS.setSpeechRate(0.66f);
@@ -363,13 +367,18 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 	private void sendSerialSignal(){
 		// get whether the BTDevice is bonded
-		if(myBTSocket.getRemoteDevice() != null){
+		if((myBTSocket != null) && (myBTSocket.getRemoteDevice() != null)){
 			// if the device is not bonded, try to bond again...
 			while(myBTSocket.getRemoteDevice().getBondState() == BluetoothDevice.BOND_NONE){
 				System.out.println("!!!: from sendSerialSignal: BTDevice not bonded, trying to re-bond");
 				//
 				bluetoothInitHelper(BluetoothAdapter.getDefaultAdapter());
 			}
+		}
+
+		// no remote device
+		else if(DEBUG_VOICE){
+			FofoquemeActivity.this.playMessage();
 		}
 
 		try{
