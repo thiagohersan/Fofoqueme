@@ -51,6 +51,9 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	private static final String[] POSTPHRASE = {" . assim você me mata.", " . relou.", " . verdade.", " . nem me fale.", " . não me diga.", " . puts.", " . não não não.", " . que coisa.", " . pode creee.", " . pois é."};
 	private static final String[] NONPHRASE  = {"só isso? ", "como assim? ", "aaaaaaiii que preguiça. "};
 
+	// DEBUG variables
+	private static final boolean DEBUG_VOICE = true;
+	
 	private TextToSpeech myTTS = null;
 	private boolean isTTSReady = false;
 	private SMSReceiver mySMS = null;
@@ -124,13 +127,14 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						}
 						// message longer than 3 words
 						else {
-							// push all messages longerthan 3 words onto queue
+							// push all messages longer than 3 words onto queue
 							msgQueue.offer(message);
 
 							// if nothing is already happening, start arduino
 							if((msgQueue.size() == 1)&&(myTTS.isSpeaking() == false)){
 								FofoquemeActivity.this.sendSerialSignal();
 							}
+
 						}
 					}
 				}
@@ -239,13 +243,13 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 	public boolean onTouchEvent(MotionEvent event){
 		System.out.println("!!!: from onTouch");
 		if((event.getAction() == MotionEvent.ACTION_UP) && (isTTSReady)){
-			// if arduino is idle (msg queue is empty), start the dance
-			if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
-				FofoquemeActivity.this.sendSerialSignal();
-			}
-
 			// Add the test message to queue 
 			msgQueue.offer("Ai, se eu te pego");
+
+			// if arduino is idle (msg queue only has the message I just put there), start the dance
+			if((msgQueue.size() == 1)&&(myTTS.isSpeaking() == false)){
+				FofoquemeActivity.this.sendSerialSignal();
+			}
 
 			return true;
 		}
@@ -364,13 +368,18 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 
 	private void sendSerialSignal(){
 		// get whether the BTDevice is bonded
-		if(myBTSocket.getRemoteDevice() != null){
+		if((myBTSocket != null) && (myBTSocket.getRemoteDevice() != null)){
 			// if the device is not bonded, try to bond again...
 			while(myBTSocket.getRemoteDevice().getBondState() == BluetoothDevice.BOND_NONE){
 				System.out.println("!!!: from sendSerialSignal: BTDevice not bonded, trying to re-bond");
 				//
 				bluetoothInitHelper(BluetoothAdapter.getDefaultAdapter());
 			}
+		}
+
+		// no remote device
+		else if(DEBUG_VOICE){
+			FofoquemeActivity.this.playMessage();
 		}
 
 		try{
