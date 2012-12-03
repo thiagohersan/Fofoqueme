@@ -127,12 +127,14 @@ public class FofoquemeActivity extends Activity implements TextToSpeech.OnInitLi
 						}
 						// message longer than 3 words
 						else {
-							// if nothing is already happening, start arduino
-							if((msgQueue.isEmpty() == true)&&(myTTS.isSpeaking() == false)){
-								FofoquemeActivity.this.sendSerialSignal();
-							}
 							// push all messages longer than 3 words onto queue
 							msgQueue.offer(message);
+
+							// if nothing is already happening, start arduino
+							if((msgQueue.size() == 1)&&(myTTS.isSpeaking() == false)){
+								FofoquemeActivity.this.sendSerialSignal();
+							}
+
 						}
 					}
 				}
